@@ -1,0 +1,467 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Philippine Recipe Costing Calculator</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f3f4f6;
+        }
+        .table-container {
+            width: 100%;
+            overflow-x: auto;
+        }
+        table {
+            width: 100%;
+            min-width: 800px;
+        }
+        .tab {
+            transition: all 0.3s ease;
+        }
+        .tab.active {
+            border-color: #4f46e5;
+            background-color: #eef2ff;
+            color: #4f46e5;
+            font-weight: 600;
+        }
+        .sheet {
+            display: none;
+        }
+        .sheet.active {
+            display: block;
+        }
+        input, select {
+            border-radius: 0.375rem;
+            border: 1px solid #d1d5db;
+            padding: 0.5rem 0.75rem;
+            transition: border-color 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
+        }
+        input:focus, select:focus {
+            outline: none;
+            border-color: #4f46e5;
+            box-shadow: 0 0 0 2px rgba(79, 70, 229, 0.3);
+        }
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            padding: 0.5rem 1rem;
+            border-radius: 0.375rem;
+            font-weight: 500;
+            transition: background-color 0.3s ease;
+            cursor: pointer;
+        }
+        .btn-primary {
+            background-color: #4f46e5;
+            color: white;
+        }
+        .btn-primary:hover {
+            background-color: #4338ca;
+        }
+        .btn-danger {
+            background-color: #ef4444;
+            color: white;
+        }
+        .btn-danger:hover {
+            background-color: #dc2626;
+        }
+        .btn-sm {
+            padding: 0.25rem 0.5rem;
+            font-size: 0.875rem;
+        }
+    </style>
+</head>
+<body class="p-4 md:p-8">
+
+    <div class="max-w-7xl mx-auto bg-white rounded-xl shadow-lg overflow-hidden">
+        <div class="p-6 md:p-8">
+            <h1 class="text-2xl md:text-3xl font-bold text-gray-800">Recipe Costing Calculator</h1>
+            <p class="mt-2 text-gray-600">A tool to calculate recipe costs for the Philippine market. Add, edit, and delete items in the database tabs.</p>
+        </div>
+
+        <div class="border-t border-b border-gray-200">
+            <div id="tabs" class="px-4 md:px-8 flex space-x-2 md:space-x-4 -mb-px overflow-x-auto">
+                <!-- Tabs will be dynamically inserted here -->
+            </div>
+        </div>
+
+        <div id="sheets-container" class="p-6 md:p-8">
+            <!-- Sheets will be dynamically inserted here -->
+        </div>
+
+    </div>
+
+    <script>
+        // --- DATA STORE ---
+        // Simulates the data that would be in each Excel sheet.
+        const state = {
+            settings: {
+                variableCostPercent: 10,
+                fixedOverheadPercent: 15,
+                desiredProfitMargin: 30,
+                vatRate: 12,
+            },
+            suppliers: [
+                { id: 'SUP001', name: 'Metro Market Meats', contactPerson: 'Juan dela Cruz', contactNumber: '09171234567', email: 'juan@metromeats.ph', notes: 'Deliveries MWF only' },
+                { id: 'SUP002', name: 'Luzon Vegetable Distributors', contactPerson: 'Maria Clara', contactNumber: '09287654321', email: 'maria@luzonveg.ph', notes: 'Cash on delivery' },
+                { id: 'SUP003', name: 'Visayas Spice Imports', contactPerson: 'Jose Rizal', contactNumber: '09151112233', email: 'jose@visayasspice.com', notes: '' },
+                { id: 'SUP004', name: 'Manila Poultry Supply', contactPerson: 'Andres Bonifacio', contactNumber: '09189876543', email: 'andres@manilapoultry.ph', notes: 'Fresh chicken daily' },
+            ],
+            ingredients: [
+                { id: 'ING001', name: 'Pork Belly (Liempo)', category: 'Meat', supplierId: 'SUP001', purchasePrice: 380, purchaseQty: 1, purchaseUnit: 'kg', yieldPercent: 95, standardUnit: 'g' },
+                { id: 'ING002', name: 'Garlic', category: 'Vegetable', supplierId: 'SUP002', purchasePrice: 120, purchaseQty: 1, purchaseUnit: 'kg', yieldPercent: 85, standardUnit: 'g' },
+                { id: 'ING003', name: 'White Onion', category: 'Vegetable', supplierId: 'SUP002', purchasePrice: 150, purchaseQty: 1, purchaseUnit: 'kg', yieldPercent: 90, standardUnit: 'g' },
+                { id: 'ING004', name: 'Soy Sauce', category: 'Condiment', supplierId: 'SUP003', purchasePrice: 80, purchaseQty: 1, purchaseUnit: 'L', yieldPercent: 100, standardUnit: 'ml' },
+                { id: 'ING005', name: 'White Vinegar', category: 'Condiment', supplierId: 'SUP003', purchasePrice: 60, purchaseQty: 1, purchaseUnit: 'L', yieldPercent: 100, standardUnit: 'ml' },
+                { id: 'ING006', name: 'Black Peppercorns', category: 'Spice', supplierId: 'SUP003', purchasePrice: 50, purchaseQty: 100, purchaseUnit: 'g', yieldPercent: 100, standardUnit: 'g' },
+                { id: 'ING007', name: 'Bay Leaf (Laurel)', category: 'Spice', supplierId: 'SUP003', purchasePrice: 30, purchaseQty: 20, purchaseUnit: 'g', yieldPercent: 100, standardUnit: 'pc' },
+                { id: 'ING008', name: 'Jasmine Rice', category: 'Dry Goods', supplierId: 'SUP002', purchasePrice: 55, purchaseQty: 1, purchaseUnit: 'kg', yieldPercent: 100, standardUnit: 'g' },
+                { id: 'ING009', name: 'Whole Chicken', category: 'Poultry', supplierId: 'SUP004', purchasePrice: 220, purchaseQty: 1, purchaseUnit: 'kg', yieldPercent: 75, standardUnit: 'g' },
+                { id: 'ING010', name: 'Ginger', category: 'Vegetable', supplierId: 'SUP002', purchasePrice: 180, purchaseQty: 1, purchaseUnit: 'kg', yieldPercent: 90, standardUnit: 'g' },
+                { id: 'ING011', name: 'Sayote (Chayote)', category: 'Vegetable', supplierId: 'SUP002', purchasePrice: 40, purchaseQty: 1, purchaseUnit: 'kg', yieldPercent: 85, standardUnit: 'g' },
+                { id: 'ING012', name: 'Fish Sauce (Patis)', category: 'Condiment', supplierId: 'SUP003', purchasePrice: 45, purchaseQty: 750, purchaseUnit: 'ml', yieldPercent: 100, standardUnit: 'ml' },
+                { id: 'ING013', name: 'Malunggay Leaves', category: 'Vegetable', supplierId: 'SUP002', purchasePrice: 10, purchaseQty: 1, purchaseUnit: 'bunch', yieldPercent: 60, standardUnit: 'g' },
+            ],
+            recipes: [
+                { recipeName: 'Pork Adobo', ingredientId: 'ING001', quantity: 1000, unit: 'g' },
+                { recipeName: 'Pork Adobo', ingredientId: 'ING002', quantity: 50, unit: 'g' },
+                { recipeName: 'Pork Adobo', ingredientId: 'ING004', quantity: 120, unit: 'ml' },
+                { recipeName: 'Pork Adobo', ingredientId: 'ING005', quantity: 80, unit: 'ml' },
+                { recipeName: 'Pork Adobo', ingredientId: 'ING006', quantity: 5, unit: 'g' },
+                { recipeName: 'Pork Adobo', ingredientId: 'ING007', quantity: 3, unit: 'pc' },
+                { recipeName: 'Chicken Tinola', ingredientId: 'ING009', quantity: 1200, unit: 'g' },
+                { recipeName: 'Chicken Tinola', ingredientId: 'ING003', quantity: 100, unit: 'g' },
+                { recipeName: 'Chicken Tinola', ingredientId: 'ING002', quantity: 30, unit: 'g' },
+                { recipeName: 'Chicken Tinola', ingredientId: 'ING010', quantity: 40, unit: 'g' },
+                { recipeName: 'Chicken Tinola', ingredientId: 'ING011', quantity: 500, unit: 'g' },
+                { recipeName: 'Chicken Tinola', ingredientId: 'ING012', quantity: 50, unit: 'ml' },
+                { recipeName: 'Chicken Tinola', ingredientId: 'ING013', quantity: 30, unit: 'g' },
+            ],
+        };
+
+        // --- UTILITY FUNCTIONS ---
+        const formatCurrency = (value) => `₱${Number(value).toFixed(2)}`;
+        const conversionFactors = { 'kg-g': 1000, 'g-kg': 1/1000, 'L-ml': 1000, 'ml-L': 1/1000 };
+        
+        function getConversionFactor(fromUnit, toUnit) {
+            if (fromUnit === toUnit) return 1;
+            const key = `${fromUnit}-${toUnit}`;
+            return conversionFactors[key] || 1;
+        }
+
+        function calculateCostPerStandardUnit(ingredient) {
+            if (!ingredient) return 0;
+
+            if (ingredient.purchaseUnit === 'pc' || ingredient.standardUnit === 'pc' || ingredient.purchaseUnit === 'bunch') {
+                if (ingredient.standardUnit === 'g' && ingredient.purchaseUnit === 'bunch') {
+                    // Estimate grams per bunch. For now, assume purchaseQty is the estimated grams.
+                    // A better approach would be a dedicated 'grams per bunch' field.
+                    // This is a simplification. Assume the purchase price is for the yieldable grams.
+                    return ingredient.purchasePrice / (ingredient.purchaseQty * (ingredient.yieldPercent / 100));
+                }
+                if (ingredient.purchaseUnit === ingredient.standardUnit) {
+                    return ingredient.purchasePrice / ingredient.purchaseQty;
+                }
+                 if (ingredient.standardUnit === 'pc') {
+                     return ingredient.purchasePrice / ingredient.purchaseQty;
+                 }
+                 return 0; // Cannot convert from 'pc' to weight/volume without more data
+            }
+            
+            const conversionFactor = getConversionFactor(ingredient.purchaseUnit, ingredient.standardUnit);
+            if (conversionFactor === 1 && ingredient.purchaseUnit !== ingredient.standardUnit) {
+                console.warn(`No conversion factor for ${ingredient.purchaseUnit} to ${ingredient.standardUnit}`);
+                return 0;
+            }
+            
+            const totalStandardUnits = ingredient.purchaseQty * conversionFactor;
+            const usableStandardUnits = totalStandardUnits * (ingredient.yieldPercent / 100);
+            
+            if (usableStandardUnits === 0) return 0;
+            return ingredient.purchasePrice / usableStandardUnits;
+        }
+        
+        // --- RENDER FUNCTIONS ---
+        const sheets = {
+            'Recipe Calculator': renderCalculatorSheet,
+            'Ingredients Database': renderIngredientsSheet,
+            'Recipes': renderRecipesSheet,
+            'Suppliers': renderSuppliersSheet,
+            'Settings': renderSettingsSheet,
+        };
+
+        function renderAll() {
+            renderTabs();
+            const container = document.getElementById('sheets-container');
+            container.innerHTML = '';
+            for (const [name, renderFunc] of Object.entries(sheets)) {
+                container.appendChild(renderFunc());
+            }
+            
+            // Re-bind all event listeners after re-rendering
+            bindAllListeners();
+            
+            // Set initial active tab and sheet
+            const activeTab = document.querySelector('.tab');
+            if (activeTab) {
+                activeTab.classList.add('active');
+                document.getElementById(activeTab.dataset.tabTarget).classList.add('active');
+            }
+
+            // Initial render of calculator
+            updateRecipeSelector();
+            updateCalculator();
+        }
+        
+        function renderTabs() {
+            const tabsContainer = document.getElementById('tabs');
+            tabsContainer.innerHTML = Object.keys(sheets).map(name => `
+                <button class="tab py-3 px-4 border-b-2 border-transparent text-sm font-medium text-gray-500 hover:text-gray-700 hover:border-gray-300" data-tab-target="${name.replace(/\s+/g, '-')}">
+                    ${name}
+                </button>
+            `).join('');
+        }
+        
+        function renderCalculatorSheet() {
+            const sheetDiv = document.createElement('div');
+            sheetDiv.id = 'Recipe-Calculator';
+            sheetDiv.className = 'sheet';
+            sheetDiv.innerHTML = `
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    <div class="md:col-span-2 space-y-6">
+                        <div class="bg-gray-50 p-4 rounded-lg">
+                            <h3 class="font-semibold text-lg text-gray-800 mb-3">1. Select Recipe</h3>
+                            <div class="flex items-center space-x-4">
+                                <select id="recipe-select" class="flex-grow"></select>
+                                <div class="flex items-center space-x-2">
+                                     <label for="servings-input" class="text-gray-700 font-medium">Servings:</label>
+                                     <input type="number" id="servings-input" value="4" class="w-24">
+                                </div>
+                            </div>
+                        </div>
+                        <div class="bg-gray-50 p-4 rounded-lg">
+                             <h3 class="font-semibold text-lg text-gray-800 mb-3">2. Ingredients Breakdown</h3>
+                             <div class="table-container">
+                                <table class="text-left">
+                                    <thead class="bg-gray-100"><tr><th class="p-3">Ingredient</th><th class="p-3">Quantity</th><th class="p-3">Unit</th><th class="p-3 text-right">Cost</th></tr></thead>
+                                    <tbody id="ingredients-breakdown-body" class="divide-y divide-gray-200"></tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="space-y-6">
+                         <div class="bg-indigo-50 p-4 rounded-lg border border-indigo-200">
+                             <h3 class="font-semibold text-lg text-indigo-800 mb-4">3. Cost Summary</h3>
+                             <div id="cost-summary" class="space-y-2 text-gray-700"></div>
+                         </div>
+                         <div class="bg-green-50 p-4 rounded-lg border border-green-200">
+                              <h3 class="font-semibold text-lg text-green-800 mb-4">4. Pricing</h3>
+                              <div id="pricing-summary" class="space-y-2 text-gray-700"></div>
+                         </div>
+                    </div>
+                </div>`;
+            return sheetDiv;
+        }
+
+        function renderIngredientsSheet() {
+            const sheetDiv = document.createElement('div');
+            sheetDiv.id = 'Ingredients-Database';
+            sheetDiv.className = 'sheet';
+            const supplierOptions = state.suppliers.map(s => `<option value="${s.id}">${s.name}</option>`).join('');
+            sheetDiv.innerHTML = `
+                <h2 class="text-xl font-bold mb-4">Ingredients Database</h2>
+                <div class="table-container mb-6"><table class="text-left"><thead class="bg-gray-100"><tr>${['ID', 'Name', 'Category', 'Supplier', 'Purchase Price', 'Purchase Qty', 'Purchase Unit', 'Yield %', 'Standard Unit', 'Cost/Unit', 'Actions'].map(h => `<th class="p-2 text-sm font-semibold text-gray-600">${h}</th>`).join('')}</tr></thead><tbody id="ingredients-table-body" class="divide-y divide-gray-200 bg-white"></tbody></table></div>
+                <div class="bg-gray-50 p-4 rounded-lg"><h3 class="font-bold mb-2">Add New Ingredient</h3><form id="add-ingredient-form" class="grid grid-cols-2 md:grid-cols-4 gap-4"><input name="name" placeholder="Name" required><input name="category" placeholder="Category" required><select name="supplierId">${supplierOptions}</select><input name="purchasePrice" type="number" step="0.01" placeholder="Purchase Price" required><input name="purchaseQty" type="number" placeholder="Purchase Qty" required><input name="purchaseUnit" placeholder="Purchase Unit (kg, L)" required><input name="yieldPercent" type="number" placeholder="Yield %" value="100" required><input name="standardUnit" placeholder="Standard Unit (g, ml)" required><button type="submit" class="btn btn-primary col-span-full">Add Ingredient</button></form></div>`;
+            updateIngredientsTable();
+            return sheetDiv;
+        }
+
+        function renderRecipesSheet() {
+            const sheetDiv = document.createElement('div');
+            sheetDiv.id = 'Recipes';
+            sheetDiv.className = 'sheet';
+            const ingredientOptions = state.ingredients.map(i => `<option value="${i.id}">${i.name}</option>`).join('');
+            sheetDiv.innerHTML = `
+                <h2 class="text-xl font-bold mb-4">Recipes</h2>
+                <div class="table-container mb-6"><table class="text-left"><thead class="bg-gray-100"><tr>${['Recipe Name', 'Ingredient Name', 'Quantity', 'Unit', 'Actions'].map(h => `<th class="p-2 text-sm font-semibold text-gray-600">${h}</th>`).join('')}</tr></thead><tbody id="recipes-table-body" class="divide-y divide-gray-200 bg-white"></tbody></table></div>
+                <div class="bg-gray-50 p-4 rounded-lg"><h3 class="font-bold mb-2">Add Ingredient to Recipe</h3><form id="add-recipe-form" class="grid grid-cols-2 md:grid-cols-4 gap-4"><input name="recipeName" placeholder="Recipe Name" required><select name="ingredientId">${ingredientOptions}</select><input name="quantity" type="number" step="0.01" placeholder="Quantity" required><input name="unit" placeholder="Unit (g, ml, pc)" required><button type="submit" class="btn btn-primary col-span-full">Add to Recipe</button></form></div>`;
+            updateRecipesTable();
+            return sheetDiv;
+        }
+        
+        function renderSuppliersSheet() {
+            const sheetDiv = document.createElement('div');
+            sheetDiv.id = 'Suppliers';
+            sheetDiv.className = 'sheet';
+            sheetDiv.innerHTML = `
+                <h2 class="text-xl font-bold mb-4">Supplier List</h2>
+                <div class="table-container mb-6"><table class="text-left"><thead class="bg-gray-100"><tr>${['ID', 'Supplier Name', 'Contact Person', 'Contact No.', 'Email', 'Notes', 'Actions'].map(h => `<th class="p-2 text-sm font-semibold text-gray-600">${h}</th>`).join('')}</tr></thead><tbody id="suppliers-table-body" class="divide-y divide-gray-200 bg-white"></tbody></table></div>
+                <div class="bg-gray-50 p-4 rounded-lg"><h3 class="font-bold mb-2">Add New Supplier</h3><form id="add-supplier-form" class="grid grid-cols-2 md:grid-cols-3 gap-4"><input name="name" placeholder="Supplier Name" required><input name="contactPerson" placeholder="Contact Person"><input name="contactNumber" placeholder="Contact Number"><input name="email" type="email" placeholder="Email"><input name="notes" placeholder="Notes" class="col-span-2"><button type="submit" class="btn btn-primary col-span-full md:col-span-1">Add Supplier</button></form></div>`;
+            updateSuppliersTable();
+            return sheetDiv;
+        }
+
+        function renderSettingsSheet() {
+             const sheetDiv = document.createElement('div');
+             sheetDiv.id = 'Settings';
+             sheetDiv.className = 'sheet';
+             sheetDiv.innerHTML = `
+                <h2 class="text-xl font-bold mb-4">Settings & Assumptions</h2>
+                <div class="max-w-md space-y-4">${Object.entries({'Variable Cost / Operating Expense (%)': 'variableCostPercent','Fixed Overhead Cost (%)': 'fixedOverheadPercent','Desired Profit Margin (%)': 'desiredProfitMargin','Value-Added Tax (VAT) Rate (%)': 'vatRate'}).map(([label, key]) => `<div><label class="font-medium text-gray-700">${label}</label><input type="number" data-setting="${key}" value="${state.settings[key]}" class="w-full mt-1"></div>`).join('')}</div>`;
+             return sheetDiv;
+        }
+
+        // --- UPDATE & LOGIC FUNCTIONS ---
+        function updateCalculator() {
+            const recipeSelect = document.getElementById('recipe-select');
+            if (!recipeSelect || !recipeSelect.value) return; // Exit if selector not ready
+            
+            const selectedRecipeName = recipeSelect.value;
+            const servings = parseFloat(document.getElementById('servings-input').value) || 1;
+            const recipeItems = state.recipes.filter(r => r.recipeName === selectedRecipeName);
+            const breakdownBody = document.getElementById('ingredients-breakdown-body');
+            
+            let totalRawCost = 0;
+            breakdownBody.innerHTML = '';
+            recipeItems.forEach(item => {
+                const ingredient = state.ingredients.find(ing => ing.id === item.ingredientId);
+                const costPerStandardUnit = calculateCostPerStandardUnit(ingredient);
+                const itemCost = item.quantity * costPerStandardUnit;
+                totalRawCost += itemCost;
+                breakdownBody.innerHTML += `<tr><td class="p-3">${ingredient?.name || 'DELETED'}</td><td class="p-3">${item.quantity}</td><td class="p-3">${item.unit}</td><td class="p-3 text-right">${formatCurrency(itemCost)}</td></tr>`;
+            });
+
+            const { variableCostPercent, fixedOverheadPercent, desiredProfitMargin, vatRate } = state.settings;
+            const costWithVariable = totalRawCost * (1 + variableCostPercent / 100);
+            const totalProductionCost = costWithVariable * (1 + fixedOverheadPercent / 100);
+            const costPerServing = totalProductionCost / servings;
+            const suggestedSellingPrice = costPerServing * (1 + desiredProfitMargin / 100);
+            const vatAmount = suggestedSellingPrice * (vatRate / 100);
+            const finalMenuPrice = suggestedSellingPrice + vatAmount;
+
+            document.getElementById('cost-summary').innerHTML = `<div class="flex justify-between"><span>Total Raw Cost:</span> <strong>${formatCurrency(totalRawCost)}</strong></div><div class="flex justify-between"><span>+ Variable Expenses:</span> <span>${formatCurrency(costWithVariable - totalRawCost)}</span></div><div class="flex justify-between"><span>+ Overhead:</span> <span>${formatCurrency(totalProductionCost - costWithVariable)}</span></div><hr class="my-2"><div class="flex justify-between text-indigo-700"><span>Total Production Cost:</span> <strong class="text-lg">${formatCurrency(totalProductionCost)}</strong></div><div class="flex justify-between text-indigo-700"><span>Cost Per Serving:</span> <strong class="text-lg">${formatCurrency(costPerServing)}</strong></div>`;
+            document.getElementById('pricing-summary').innerHTML = `<div class="flex justify-between"><span>Price (Before VAT):</span> <strong>${formatCurrency(suggestedSellingPrice)}</strong></div><div class="flex justify-between"><span>VAT (${vatRate}%):</span> <span>${formatCurrency(vatAmount)}</span></div><hr class="my-2"><div class="flex justify-between text-green-700"><span>Final Menu Price:</span> <strong class="text-xl">${formatCurrency(finalMenuPrice)}</strong></div>`;
+        }
+        
+        function updateRecipeSelector() {
+            const recipeSelect = document.getElementById('recipe-select');
+            if (!recipeSelect) return;
+            const recipeNames = [...new Set(state.recipes.map(r => r.recipeName))];
+            const currentSelection = recipeSelect.value;
+            recipeSelect.innerHTML = recipeNames.map(name => `<option value="${name}">${name}</option>`).join('');
+            // Preserve selection if it still exists
+            if (recipeNames.includes(currentSelection)) {
+                recipeSelect.value = currentSelection;
+            }
+        }
+        
+        function updateIngredientsTable() {
+            const body = document.getElementById('ingredients-table-body');
+            if(!body) return;
+            body.innerHTML = state.ingredients.map(ing => `<tr data-id="${ing.id}"><td class="p-2">${ing.id}</td><td class="p-2">${ing.name}</td><td class="p-2">${ing.category}</td><td class="p-2">${state.suppliers.find(s => s.id === ing.supplierId)?.name || 'N/A'}</td><td class="p-2">${formatCurrency(ing.purchasePrice)}</td><td class="p-2">${ing.purchaseQty}</td><td class="p-2">${ing.purchaseUnit}</td><td class="p-2">${ing.yieldPercent}%</td><td class="p-2">${ing.standardUnit}</td><td class="p-2 font-semibold text-indigo-600">${formatCurrency(calculateCostPerStandardUnit(ing))}</td><td class="p-2"><button class="btn btn-danger btn-sm" data-action="delete-ingredient">Del</button></td></tr>`).join('');
+        }
+
+        function updateRecipesTable() {
+            const body = document.getElementById('recipes-table-body');
+            if(!body) return;
+            body.innerHTML = state.recipes.map((item, index) => `<tr data-index="${index}"><td class="p-2">${item.recipeName}</td><td class="p-2">${state.ingredients.find(i => i.id === item.ingredientId)?.name || 'DELETED'}</td><td class="p-2">${item.quantity}</td><td class="p-2">${item.unit}</td><td class="p-2"><button class="btn btn-danger btn-sm" data-action="delete-recipe-item">Del</button></td></tr>`).join('');
+        }
+
+        function updateSuppliersTable() {
+            const body = document.getElementById('suppliers-table-body');
+            if(!body) return;
+            body.innerHTML = state.suppliers.map(sup => `<tr data-id="${sup.id}"><td class="p-2">${sup.id}</td><td class="p-2">${sup.name}</td><td class="p-2">${sup.contactPerson}</td><td class="p-2">${sup.contactNumber}</td><td class="p-2">${sup.email}</td><td class="p-2">${sup.notes}</td><td class="p-2"><button class="btn btn-danger btn-sm" data-action="delete-supplier">Del</button></td></tr>`).join('');
+        }
+        
+        // --- EVENT HANDLERS ---
+        function handleFormSubmit(event) {
+            event.preventDefault();
+            const form = event.target;
+            const formData = new FormData(form);
+            const data = Object.fromEntries(formData.entries());
+
+            if (form.id === 'add-supplier-form') {
+                state.suppliers.push({ ...data, id: `SUP${Date.now()}` });
+                renderAll(); // Full re-render to update supplier dropdowns everywhere
+            } else if (form.id === 'add-ingredient-form') {
+                state.ingredients.push({ ...data, id: `ING${Date.now()}`, purchasePrice: parseFloat(data.purchasePrice), purchaseQty: parseFloat(data.purchaseQty), yieldPercent: parseFloat(data.yieldPercent) });
+                renderAll();
+            } else if (form.id === 'add-recipe-form') {
+                state.recipes.push({ ...data, quantity: parseFloat(data.quantity) });
+                updateRecipesTable();
+                updateRecipeSelector();
+                updateCalculator();
+            }
+            form.reset();
+        }
+        
+        function handleDeleteClick(event) {
+            const action = event.target.dataset.action;
+            if (!action) return;
+
+            const row = event.target.closest('tr');
+            if (action === 'delete-supplier') {
+                const id = row.dataset.id;
+                state.suppliers = state.suppliers.filter(s => s.id !== id);
+                renderAll();
+            } else if (action === 'delete-ingredient') {
+                const id = row.dataset.id;
+                state.ingredients = state.ingredients.filter(i => i.id !== id);
+                renderAll();
+            } else if (action === 'delete-recipe-item') {
+                const index = parseInt(row.dataset.index, 10);
+                state.recipes.splice(index, 1);
+                updateRecipesTable();
+                updateRecipeSelector();
+                updateCalculator();
+            }
+        }
+
+        function handleSettingsChange(event) {
+            if(event.target.matches('input[data-setting]')) {
+                const key = event.target.dataset.setting;
+                state.settings[key] = parseFloat(event.target.value) || 0;
+                updateCalculator();
+            }
+        }
+
+        // --- BIND ALL LISTENERS ---
+        function bindAllListeners() {
+            // Tab switching
+            document.getElementById('tabs').addEventListener('click', (e) => {
+                if (e.target.matches('.tab')) {
+                    document.querySelectorAll('.tab').forEach(tab => tab.classList.remove('active'));
+                    document.querySelectorAll('.sheet').forEach(sheet => sheet.classList.remove('active'));
+                    e.target.classList.add('active');
+                    document.getElementById(e.target.dataset.tabTarget).classList.add('active');
+                }
+            });
+
+            // Calculator updates
+            document.getElementById('recipe-select')?.addEventListener('change', updateCalculator);
+            document.getElementById('servings-input')?.addEventListener('input', updateCalculator);
+            
+            // Form Submissions
+            document.getElementById('add-supplier-form')?.addEventListener('submit', handleFormSubmit);
+            document.getElementById('add-ingredient-form')?.addEventListener('submit', handleFormSubmit);
+            document.getElementById('add-recipe-form')?.addEventListener('submit', handleFormSubmit);
+            
+            // Delete Clicks (Event Delegation)
+            document.getElementById('suppliers-table-body')?.addEventListener('click', handleDeleteClick);
+            document.getElementById('ingredients-table-body')?.addEventListener('click', handleDeleteClick);
+            document.getElementById('recipes-table-body')?.addEventListener('click', handleDeleteClick);
+
+            // Settings updates
+            document.getElementById('Settings')?.addEventListener('input', handleSettingsChange);
+        }
+
+        // --- INITIALIZATION ---
+        document.addEventListener('DOMContentLoaded', renderAll);
+
+    </script>
+</body>
+</html>
